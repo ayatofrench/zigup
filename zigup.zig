@@ -28,6 +28,7 @@ const archive_ext = if (builtin.os.tag == .windows) "zip" else "tar.xz";
 
 var global_optional_install_dir: ?[]const u8 = null;
 var global_optional_path_link: ?[]const u8 = null;
+var global_optional_download_url: ?[]const u8 = null;
 
 var global_enable_log = true;
 fn loginfo(comptime fmt: []const u8, args: anytype) void {
@@ -158,7 +159,7 @@ fn help() void {
         \\  --path-link PATH              path to the `zig` symlink that points to the default compiler
         \\                                this will typically be a file path within a PATH directory so
         \\                                that the user can just run `zig`
-        \\
+        \\  --url <URL>                   provide a zig compiler url to download
     ) catch unreachable;
 }
 
@@ -207,6 +208,8 @@ pub fn main2() !u8 {
                 if (!std.fs.path.isAbsolute(global_optional_path_link.?)) {
                     global_optional_path_link = try toAbsolute(allocator, global_optional_path_link.?);
                 }
+            } else if (std.mem.eql(u8, "--url", arg)) {
+                global_optional_download_url = try getCmdOpt(args, &i);
             } else if (std.mem.eql(u8, "-h", arg) or std.mem.eql(u8, "--help", arg)) {
                 help();
                 return 0;
@@ -368,6 +371,9 @@ fn fetchCompiler(allocator: Allocator, version_arg: []const u8, set_default: Set
     //       this step for all other versions because the version to URL mapping is fixed (see getDefaultUrl)
     const is_master = std.mem.eql(u8, version_arg, "master");
     const version_url = blk: {
+        if (global_optional_download_url != null) {
+            break :blk VersionUrl{ .version = version_arg, .url = global_optional_download_url.? };
+        }
         if (!is_master)
             break :blk VersionUrl{ .version = version_arg, .url = try getDefaultUrl(allocator, version_arg) };
         optional_download_index = try fetchDownloadIndex(allocator);
